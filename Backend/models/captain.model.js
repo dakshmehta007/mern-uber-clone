@@ -1,4 +1,4 @@
-const { default: mongoose } = require("mongoose");
+const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
@@ -33,13 +33,9 @@ const captainSchema = new mongoose.Schema({
     enum: ["active", "inactive"],
     default: "inactive",
   },
-  locaiton: {
-    lat: {
-      type: Number,
-    },
-    lng: {
-      type: Number,
-    },
+  location: {
+    type: { type: String, enum: ["Point"], required: true },
+    coordinates: { type: [Number], required: true }, // Correct order: [longitude, latitude]
   },
   vehicle: {
     color: {
@@ -57,7 +53,7 @@ const captainSchema = new mongoose.Schema({
       required: true,
       min: [1, "Capacity must be at least 1 passenger"],
     },
-    vehivleType: {
+    vehicleType: {
       type: String,
       required: true,
       enum: ["car", "motorcycle", "auto"],
@@ -65,17 +61,28 @@ const captainSchema = new mongoose.Schema({
   },
 });
 
+// Ensure 2dsphere index on location
+captainSchema.index({ location: "2dsphere" });
+
+// Hash the password before saving the captain
+captainSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
+// Compare the password
+captainSchema.methods.comparePassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Generate JWT token
 captainSchema.methods.generateAuthToken = function () {
-    const token = jwt.sign({ _id: this._id }, process.env.JWT_SECRET, { expiresIn: '24hr' });
-    return token;
-}
-captainSchema.methods.comparePassword = async function (password) {
-    return await bcrypt.compare(password, this.password);
-}
+  return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+    expiresIn: "1d",
+  });
+};
 
-captainSchema.statics.hashPassword = async function (password) {
-    return await bcrypt.hash(password, 10);
-}
-
-const captainModel = mongoose.model('captain', captainSchema);
+const captainModel = mongoose.model("captain", captainSchema);
 module.exports = captainModel;

@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    ".env*": "dotenv",
+    "NONAME11.C": "cpp",
+    "new": "cpp",
+    "EXP7[1].C": "cpp"
+  }
+}
